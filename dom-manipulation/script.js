@@ -124,7 +124,7 @@ function updateSyncStatus(status, isError = false) {
 }
 
 // Simulate Server Data Fetch
-async function fetchServerQuotes() {
+async function fetchQuotesFromServer() {
     try {
         updateSyncStatus('Syncing with server...');
         
@@ -236,7 +236,7 @@ function resolveConflicts(conflicts) {
 
 //  Sync with Server
 async function syncWithServer() {
-    const serverData = await fetchServerQuotes();
+    const serverData = await fetchQuotesFromServer();
     
     if (!serverData) {
         return; // Sync failed
