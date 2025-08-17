@@ -9,6 +9,28 @@
 <body>
 
     <h1>Magic Quote Machine</h1>
+
+    <div class="container sync-section">
+        <h3>Server Sync Status</h3>
+        <div id="syncStatus">Checking connection...</div>
+        <button id="syncButton">Sync with Server</button>
+        <button id="conflictResolveButton" style="display: none;">Resolve Conflicts</button>
+    </div>
+
+    <div id="notificationArea" class="notification-area" style="display: none;">
+        <div id="notificationContent"></div>
+        <button id="closeNotification">×</button>
+    </div>
+
+        <!-- New section for Category Filtering -->
+    <div class="container filter-section">
+        <h3>Filter by Category</h3>
+        <select id="categoryFilter" onchange="filterQuotes()">
+            <option value="all">All Categories</option>
+            <!-- Dynamically populated categories -->
+        </select>
+    </div>
+
     <div class="container">
         <div id="quoteDisplay">
         <!-- Our magic quotes div -->
@@ -29,15 +51,6 @@
         <button id="exportButton">Export Quotes to JSON</button>
         <input type="file" id="importFile" accept=".json" />
         <button id="importButton">Import Quotes from JSON</button>
-    </div>
-
-    <!-- New section for Category Filtering -->
-    <div class="container filter-section">
-        <h3>Filter by Category</h3>
-        <select id="categoryFilter" onchange="filterQuotes()">
-            <option value="all">All Categories</option>
-            <!-- Dynamically populated categories -->
-        </select>
     </div>
 
     <script src="script.js"></script>
