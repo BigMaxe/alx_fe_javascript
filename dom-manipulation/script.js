@@ -160,6 +160,70 @@ async function fetchQuotesFromServer() {
     }
 }
 
+// Post quote data to server using mock API
+async function postQuoteToServer(quoteData) {
+    try {
+        const response = await fetch(SERVER_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                title: quoteData.text,
+                body: `Category: ${quoteData.category}`,
+                userId: 1
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to post quote to server');
+        }
+
+        const result = await response.json();
+        showNotification(`Quote successfully posted to server (ID: ${result.id})`, 'success');
+        return result;
+        
+    } catch (error) {
+        console.error('Post to server failed:', error);
+        showNotification('Failed to post quote to server. Saved locally.', 'error');
+        return null;
+    }
+}
+
+// MODIFIED: Sync quotes function (now includes posting)
+async function syncQuotes() {
+    // Fetch quotes from server
+    const serverData = await fetchQuotesFromServer();
+    
+    if (!serverData) {
+        return; // Sync failed
+    }
+    
+    // Post any new local quotes to server
+    const lastSync = getLastSyncTimestamp();
+    const newLocalQuotes = quotes.filter(quote => 
+        !quote.id && quote.timestamp && quote.timestamp > lastSync
+    );
+    
+    // Post new local quotes to server
+    for (const localQuote of newLocalQuotes) {
+        await postQuoteToServer(localQuote);
+    }
+    
+    // Detect conflicts
+    const conflicts = detectConflicts(quotes, serverData);
+    
+    if (conflicts.length > 0) {
+        pendingConflicts = conflicts;
+        conflictResolveButton.style.display = 'inline-block';
+        
+        const conflictMessages = conflicts.map(c => c.message).join('\n');
+        showNotification(`Conflicts detected!\n${conflictMessages}\nClick "Resolve Conflicts" to merge changes.`, 'conflict');
+    } else {
+        showNotification('Data is in sync with server.', 'success');
+    }
+}
+
 //  Detect Conflicts Between Local and Server Data
 function detectConflicts(localQuotes, serverQuotes) {
     const conflicts = [];
@@ -236,24 +300,7 @@ function resolveConflicts(conflicts) {
 
 //  Sync with Server
 async function syncWithServer() {
-    const serverData = await fetchQuotesFromServer();
-    
-    if (!serverData) {
-        return; // Sync failed
-    }
-    
-    // Detect conflicts
-    const conflicts = detectConflicts(quotes, serverData);
-    
-    if (conflicts.length > 0) {
-        pendingConflicts = conflicts;
-        conflictResolveButton.style.display = 'inline-block';
-        
-        const conflictMessages = conflicts.map(c => c.message).join('\n');
-        showNotification(`Conflicts detected!\n${conflictMessages}\nClick "Resolve Conflicts" to merge changes.`, 'conflict');
-    } else {
-        showNotification('Data is in sync with server.', 'success');
-    }
+  await syncQuotes();
 }
 
 // Start Periodic Sync (every 30 seconds)
@@ -349,7 +396,7 @@ function showRandomQuoteFromFiltered() {
     }
 
   const randomIndex = Math.floor(Math.random() * quotes.length);
-  const randomQuote = quotes[randomIndex];
+  const randomQuote = filteredQuotes[randomIndex];
 
   // write the quote on our HTML page.
   quoteDisplay.innerHTML = `
@@ -359,7 +406,7 @@ function showRandomQuoteFromFiltered() {
 }
 
 // TAdd a New Quote
-function createAddQuoteForm() {
+async function createAddQuoteForm() {
   const quote = newQuoteText.value.trim();
   const category = newQuoteCategory.value.trim();
 
@@ -371,6 +418,9 @@ function createAddQuoteForm() {
 
     //Save to local storage
     saveQuotes();
+
+    // Post quote to server
+    await postQuoteToServer(newQuote);
 
     // Update categories dropdown if new category was added
     populateCategories();
@@ -423,79 +473,86 @@ function exportQuotes() {
 }
 
 // Import quotes from JSON file
-function importFromJsonFile() {
-  const file = importFile.files[0];
-  if (!file) {
-      alert('Please select a JSON file to import!');
-      return;
-  }
+async function importFromJsonFile() {
+    const file = importFile.files[0];
+    if (!file) {
+        alert('Please select a JSON file to import!');
+        return;
+    }
 
-  const fileReader = new FileReader();
-  fileReader.onload = function(event) {
-      try {
-          const importedQuotes = JSON.parse(event.target.result);
-                    
-          // Validate the imported data
-          if (!Array.isArray(importedQuotes)) {
-              throw new Error('Invalid JSON format: Expected an array of quotes');
-          }
+    const fileReader = new FileReader();
+    fileReader.onload = async function(event) {
+        try {
+            const importedQuotes = JSON.parse(event.target.result);
+                        
+            // Validate the imported data
+            if (!Array.isArray(importedQuotes)) {
+                throw new Error('Invalid JSON format: Expected an array of quotes');
+            }
 
-          // Validate each quote object
-          for (const quote of importedQuotes) {
-              if (!quote.text || !quote.category) {
-                  throw new Error('Invalid quote format: Each quote must have "text" and "category" properties');
-              }
-          }
+            // Validate each quote object
+            for (const quote of importedQuotes) {
+                if (!quote.text || !quote.category) {
+                    throw new Error('Invalid quote format: Each quote must have "text" and "category" properties');
+                }
+            }
 
-          const timestampedQuotes = importedQuotes.map(quote => ({
-              ...quote,
-              timestamp: quote.timestamp || Date.now()
-          }));
+            const timestampedQuotes = importedQuotes.map(quote => ({
+                ...quote,
+                timestamp: quote.timestamp || Date.now()
+            }));
 
-          // Add imported quotes to existing quotes
-          quotes.push(...importedQuotes);
-          saveQuotes();
-          // Update categories dropdown with new categories
-          populateCategories();
-          // Update filtered quotes based on current filter
-          filterQuotes();
-          showNotification(`Successfully imported ${importedQuotes.length} quotes!`, 'success');
-          alert(`Successfully imported ${importedQuotes.length} quotes!`);
-                    
-          // Clear the file input
-          importFile.value = '';
-          
-      } catch (error) {
-        showNotification('Error importing quotes: ' + error.message, 'error');
-        alert('Error importing quotes: ' + error.message);
-      }
-  };
-  fileReader.readAsText(file);
+            // Add imported quotes to existing quotes
+            quotes.push(...timestampedQuotes);
+            saveQuotes();
+            
+            // 🟢 NEW: Post imported quotes to server
+            for (const quote of timestampedQuotes) {
+                await postQuoteToServer(quote);
+            }
+            
+            // Update categories dropdown with new categories
+            populateCategories();
+            // Update filtered quotes based on current filter
+            filterQuotes();
+            showNotification(`Successfully imported ${importedQuotes.length} quotes!`, 'success');
+            alert(`Successfully imported ${importedQuotes.length} quotes!`);
+                        
+            // Clear the file input
+            importFile.value = '';
+            
+        } catch (error) {
+            showNotification('Error importing quotes: ' + error.message, 'error');
+            alert('Error importing quotes: ' + error.message);
+        }
+    };
+    fileReader.readAsText(file);
 }
 
 // Initialize the application
 function initializeApp() {
-  // Load quotes from localStorage
-  loadQuotes();
+    // Load quotes from localStorage
+    loadQuotes();
+    loadServerQuotes(); // 🟢 NEW: Load server quotes
 
-  // Populate categories dropdown
-  populateCategories();
-  
-  // Apply the last selected filter
-  filterQuotes();
-            
-  // Show last viewed quote from session storage, or random quote
-  const lastQuote = getLastQuote();
-  if (lastQuote && quotes.some(q => q.text === lastQuote.text && q.category === lastQuote.category)) {
-      quoteDisplay.innerHTML = `
-          <p id="quoteText">"${lastQuote.text}"</p>
-          <p id="quoteAuthor">— ${lastQuote.category}</p>
-      `;
-  } else {
-      showRandomQuoteFromFiltered();
-  }
+    // Populate categories dropdown
+    populateCategories();
+    
+    // Apply the last selected filter
+    filterQuotes();
+                
+    // Show last viewed quote from session storage, or random quote
+    const lastQuote = getLastQuote();
+    if (lastQuote && filteredQuotes.some(q => q.text === lastQuote.text && q.category === lastQuote.category)) {
+        quoteDisplay.innerHTML = `
+            <p id="quoteText">"${lastQuote.text}"</p>
+            <p id="quoteAuthor">— ${lastQuote.category}</p>
+        `;
+    } else {
+        showRandomQuoteFromFiltered();
+    }
 
-  startPeriodicSync();
+    startPeriodicSync();
 }
 
 // Cleanup on page unload
