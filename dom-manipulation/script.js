@@ -49,9 +49,22 @@ function createAddQuoteForm() {
     const newQuote = { text: quote, category: category };
     quotes.push(newQuote);
 
+     // Use createElement and appendChild to update the DOM
+    const quoteTextElement = document.createElement("p");
+    quoteTextElement.id = "quoteText";
+    quoteTextElement.textContent = `"${newQuote.text}"`;
+    
+    const quoteCategoryElement = document.createElement("p");
+    quoteCategoryElement.id = "quoteAuthor";
+    quoteCategoryElement.textContent = `— ${newQuote.category}`;
+    
+    // Clear the display and add the new elements
+    quoteDisplay.innerHTML = "";
+    quoteDisplay.appendChild(quoteTextElement);
+    quoteDisplay.appendChild(quoteCategoryElement);
+
     newQuoteText.value = "";
     newQuoteCategory.value = "";
-    showRandomQuote();
   }
 }
 
