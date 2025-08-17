@@ -220,10 +220,10 @@ async function syncQuotes() {
         const conflictMessages = conflicts.map(c => c.message).join('\n');
         showNotification(`Conflicts detected!\n${conflictMessages}\nClick "Resolve Conflicts" to merge changes.`, 'conflict');
     } else {
-        showNotification('Data is in sync with server.', 'success');
+        // Added the required sync message
+        showNotification('Quotes synced with server!', 'success');
     }
 }
-
 //  Detect Conflicts Between Local and Server Data
 function detectConflicts(localQuotes, serverQuotes) {
     const conflicts = [];
@@ -290,8 +290,12 @@ function resolveConflicts(conflicts) {
         populateCategories();
         filterQuotes();
         showNotification(`Resolved conflicts: Added ${addedCount} quotes from server.`, 'success');
+        // Added sync success message after conflict resolution
+        showNotification('Quotes synced with server!', 'success');
     } else {
         showNotification('No conflicts to resolve.', 'info');
+        // Show sync message even when no conflicts
+        showNotification('Quotes synced with server!', 'success');
     }
     
     pendingConflicts = [];
