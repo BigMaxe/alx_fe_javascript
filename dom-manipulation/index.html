@@ -31,6 +31,14 @@
         <button id="importButton">Import Quotes from JSON</button>
     </div>
 
+    <!-- New section for Category Filtering -->
+    <div class="container filter-section">
+        <h3>Filter by Category</h3>
+        <select id="categoryFilter" onchange="filterQuotes()">
+            <option value="all">All Categories</option>
+            <!-- Dynamically populated categories -->
+        </select>
+    </div>
 
     <script src="script.js"></script>
 </body>
